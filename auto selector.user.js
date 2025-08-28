@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto-selection feedback (Workflow/Intent Verifier - Optimized Search Highlight)
 // @namespace    http://tampermonkey.net/
-// @version      2.3
+// @version      2.4
 // @description  Compact floating toolbox with pastel green theme, HVA selector, Workflow/Intent verification, and optimized "search" highlighter (no slowdown)
 // @author       Mohammed Bin Sultan Bahyal @mbahyal
 // @match        https://gamma.console.harmony.a2z.com/bc-rag-simulator/*
@@ -22,23 +22,44 @@
         "SSO", "Shared Settings", "None of the above", "Custom"
     ];
 
-    // ✅ Verify Workflow/Intent only
+    // ✅ Updated Verify Workflow/Intent function for new structure
     function checkLabel(labelPrefix, expected) {
-        const matches = Array.from(document.querySelectorAll("p"))
-            .filter(p => p.textContent.trim().startsWith(labelPrefix));
+        // Look for divs that directly contain ONLY the label text and span
+        const matches = Array.from(document.querySelectorAll("div:not(.V6_4-system-content)"))
+            .filter(div => {
+                const text = div.textContent.trim();
+                const hasSpan = div.querySelector("span.V6_4-field-value");
+                // Check if this div's direct text content starts with the label
+                const directTextOnly = Array.from(div.childNodes)
+                    .filter(node => node.nodeType === Node.TEXT_NODE)
+                    .map(node => node.textContent.trim())
+                    .join('');
+
+                return directTextOnly.startsWith(labelPrefix.replace(':', '')) && hasSpan &&
+                       !div.classList.contains('V6_4-system-content') &&
+                       div.children.length <= 2; // Should only have the span and maybe one other element
+            });
 
         if (matches.length === 0) return;
 
-        matches.forEach(p => {
-            const actual = p.textContent.replace(labelPrefix, "").trim();
+        matches.forEach(div => {
+            // Find the span with class V6_4-field-value within this div
+            const valueSpan = div.querySelector("span.V6_4-field-value");
+            if (!valueSpan) return;
+
+            const actual = valueSpan.textContent.trim();
             if (actual === expected) {
-                p.style.background = "#d8f3dc"; // pastel green
-                p.style.border = "1px solid #2d6a4f";
-                p.style.padding = "2px 4px";
+                // Highlight only the individual div (Workflow or Intent div)
+                div.style.background = "#d8f3dc"; // pastel green
+                div.style.border = "1px solid #2d6a4f";
+                div.style.padding = "2px 4px";
+                div.style.borderRadius = "4px";
             } else {
-                p.style.background = "#f8d7da"; // red for mismatch
-                p.style.border = "1px solid #721c24";
-                p.style.padding = "2px 4px";
+                // Highlight with red for mismatch
+                div.style.background = "#f8d7da"; // red for mismatch
+                div.style.border = "1px solid #721c24";
+                div.style.padding = "2px 4px";
+                div.style.borderRadius = "4px";
             }
         });
     }
@@ -169,6 +190,7 @@
                     setDropdown(defaultHVA);
                     setAllRadios("Yes");
                     setTextareas("Response is accurate");
+                    // Only highlight Workflow and Intent verification
                     checkLabel("Workflow:", "abfeature_concise_response_using_knowledge_base");
                     checkLabel("Intent:", "ab_features_static_help");
                 }
@@ -243,4 +265,3 @@
     else window.addEventListener("load", mountToolbox);
 
 })();
-+
